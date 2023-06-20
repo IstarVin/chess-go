@@ -11,7 +11,14 @@ import (
 //}
 
 func TestEngine_Move(t *testing.T) {
+	chess := NewGameChess()
 
+	err := chess.Move("b1", "c3")
+	if err != nil {
+		panic(err)
+	}
+
+	chess.PrintBoard()
 }
 func TestEngine_GetFen(t *testing.T) {
 	inputs := []string{

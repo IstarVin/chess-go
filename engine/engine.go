@@ -37,6 +37,10 @@ type Chess struct {
 
 // Move moves a piece
 func (c *Chess) Move(from, to string) error {
+	if from == to {
+		return &MoveError{err: "no move happened"}
+	}
+
 	fromCoords := translateCBtoCoords(from)
 	toCoords := translateCBtoCoords(to)
 
@@ -47,17 +51,26 @@ func (c *Chess) Move(from, to string) error {
 
 	movePiece(fromCoords, toCoords, &c.boardTable)
 
+	piece := determinePieceWithCoords(fromCoords, c.boardTable)
+
+	switch unicode.ToLower(piece) {
+	case 'p':
+
+	}
+
 	return nil
 }
 
 // PrintBoard prints the board
 func (c *Chess) PrintBoard() {
-	for _, row := range c.boardTable {
+	for i, row := range c.boardTable {
 		for _, content := range row {
 			print(string(content), " ")
 		}
-		println()
+		println(8 - i)
 	}
+
+	println("a b c d e f g h")
 }
 
 // CalculateValidMoves calculates the valid paths in a given cb notation
