@@ -188,15 +188,17 @@ func TestEngine_calculateValidPaths(t *testing.T) {
 		"a6",
 		"a2",
 		"b5",
+		"e3",
 	}
 
 	expectedOutputs := [][]*Coords{
 		{{3, 0}, {3, 1}},
 		{{5, 0}, {4, 0}},
 		{{2, 1}, {2, 2}, {2, 0}},
+		{{3, 5}, {3, 3}, {4, 6}, {4, 2}},
 	}
 
-	chess, _ := NewChessGameWithFen("rnbqkbnr/1p1ppppp/p7/1Pp5/4P3/8/PPPP1PPP/RNBQKBNR w Kq c5 5 23")
+	chess, _ := NewChessGameWithFen("rnbqkbnr/1p1ppppp/p7/1Pp5/4P3/4N3/PPPP1PPP/RNBQKBNR w Kq c5 5 23")
 	for i, input := range inputs {
 
 		expectedOutput := expectedOutputs[i]

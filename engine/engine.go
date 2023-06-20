@@ -203,7 +203,7 @@ func (c *Chess) decodeFen(fen string) error {
 func (c *Chess) calculateValidMoves(piece rune, coord *Coords) []*Coords {
 	var validMoves []*Coords
 
-	moves := c.calculateMoves(piece, coord, c.boardTable)
+	moves := c.calculateMoves(piece, coord, c.boardTable, 8)
 
 	for _, move := range moves {
 		// Check if in bounds
@@ -218,7 +218,7 @@ func (c *Chess) calculateValidMoves(piece rune, coord *Coords) []*Coords {
 }
 
 // calculateMoves calculates the paths in a given piece and coordinate
-func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board) []*Coords {
+func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep int) []*Coords {
 	var moves []*Coords
 	color := determineColor(piece)
 
@@ -275,19 +275,83 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board) []*Coords
 		}
 	// Knight
 	case 'n':
+		for _, rowDirection := range []int{2, -2} {
+			for _, colDirection := range []int{1, -1} {
+				newCoords := &Coords{coord.row + rowDirection, coord.col + colDirection}
 
+				if checkIfAllyInCoords(newCoords, color, board) {
+					continue
+				}
+
+				moves = append(moves, newCoords)
+			}
+		}
+		for _, rowDirection := range []int{1, -1} {
+			for _, colDirection := range []int{2, -2} {
+				newCoords := &Coords{coord.row + rowDirection, coord.col + colDirection}
+
+				if checkIfAllyInCoords(newCoords, color, board) {
+					continue
+				}
+
+				moves = append(moves, newCoords)
+			}
+		}
 	// Bishop
 	case 'b':
+		for _, rowDirection := range []int{1, -1} {
+			for _, colDirection := range []int{1, -1} {
+				for i := 0; i < maxStep; i++ {
+					newCoords := &Coords{coord.row + rowDirection*(i+1), coord.col + colDirection*(i+1)}
 
+					if checkIfThereIsPieceInCoords(newCoords, board) {
+						if !checkIfAllyInCoords(newCoords, color, board) {
+							moves = append(moves, newCoords)
+						}
+						break
+					}
+
+					moves = append(moves, newCoords)
+				}
+			}
+		}
 	// Rook
 	case 'r':
+		for _, rowDirection := range []int{1, -1} {
+			for i := 0; i < maxStep; i++ {
+				newCoords := &Coords{coord.row + rowDirection*(i+1), coord.col}
 
+				if checkIfThereIsPieceInCoords(newCoords, board) {
+					if !checkIfAllyInCoords(newCoords, color, board) {
+						moves = append(moves, newCoords)
+					}
+					break
+				}
+
+				moves = append(moves, newCoords)
+			}
+		}
+		for _, colDirection := range []int{1, -1} {
+			for i := 0; i < maxStep; i++ {
+				newCoords := &Coords{coord.row, coord.col + colDirection*(i+1)}
+
+				if checkIfThereIsPieceInCoords(newCoords, board) {
+					if !checkIfAllyInCoords(newCoords, color, board) {
+						moves = append(moves, newCoords)
+					}
+					break
+				}
+
+				moves = append(moves, newCoords)
+			}
+		}
 	// Queen
 	case 'q':
-
+		moves = append(moves, c.calculateMoves('b', coord, board, maxStep)...)
+		moves = append(moves, c.calculateMoves('r', coord, board, maxStep)...)
 	// King
 	case 'k':
-
+		moves = append(moves, c.calculateMoves('q', coord, board, 1)...)
 	}
 
 	return moves
