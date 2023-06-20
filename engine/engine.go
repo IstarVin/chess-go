@@ -8,6 +8,7 @@ import (
 
 const (
 	DefaultFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	MaxStep    = 7
 )
 
 func NewGameChess() *Chess {
@@ -26,7 +27,7 @@ func NewChessGameWithFen(fen string) (*Chess, error) {
 
 type Chess struct {
 	boardTable  Board
-	turn        string
+	turn        rune
 	castle      CastleAvailability
 	pawnPassant string
 	halfmoves   int
@@ -79,7 +80,7 @@ func (c *Chess) GetFEN() string {
 	}
 
 	// Turn
-	fen += " " + c.turn + " "
+	fen += " " + string(c.turn) + " "
 
 	// Castle
 	if c.castle.WhiteKing {
@@ -162,7 +163,10 @@ func (c *Chess) decodeFen(fen string) error {
 	}
 
 	// Turn
-	c.turn = splitFen[1]
+	if len(splitFen[1]) != 1 {
+		return &FENError{err: "invalid turn parameter"}
+	}
+	c.turn = []rune(splitFen[1])[0]
 
 	// Castle
 	for _, castleAble := range splitFen[2] {
@@ -203,11 +207,15 @@ func (c *Chess) decodeFen(fen string) error {
 func (c *Chess) calculateValidMoves(piece rune, coord *Coords) []*Coords {
 	var validMoves []*Coords
 
-	moves := c.calculateMoves(piece, coord, c.boardTable, 8)
+	color := determineColor(piece)
+
+	moves := c.calculateMoves(piece, coord, c.boardTable, MaxStep)
 
 	for _, move := range moves {
-		// Check if in bounds
-		if checkIfCoordsIsOutOfBounds(move) {
+		newBoard := c.boardTable
+		movePiece(coord, move, &newBoard)
+
+		if c.checkIfChecked(color, newBoard) {
 			continue
 		}
 
@@ -217,10 +225,17 @@ func (c *Chess) calculateValidMoves(piece rune, coord *Coords) []*Coords {
 	return validMoves
 }
 
+// TODO: optimize move calculations
 // calculateMoves calculates the paths in a given piece and coordinate
 func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep int) []*Coords {
 	var moves []*Coords
 	color := determineColor(piece)
+
+	filter := func(move *Coords) {
+		if !checkIfCoordsIsOutOfBounds(move) {
+			moves = append(moves, move)
+		}
+	}
 
 	switch unicode.ToLower(piece) {
 	// Pawn
@@ -246,7 +261,7 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 				break
 			}
 
-			moves = append(moves, newCoords)
+			filter(newCoords)
 		}
 
 		for _, sideDirection := range []int{1, -1} {
@@ -271,7 +286,7 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 				continue
 			}
 
-			moves = append(moves, newCoords)
+			filter(newCoords)
 		}
 	// Knight
 	case 'n':
@@ -283,7 +298,7 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 					continue
 				}
 
-				moves = append(moves, newCoords)
+				filter(newCoords)
 			}
 		}
 		for _, rowDirection := range []int{1, -1} {
@@ -294,7 +309,7 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 					continue
 				}
 
-				moves = append(moves, newCoords)
+				filter(newCoords)
 			}
 		}
 	// Bishop
@@ -306,12 +321,12 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 
 					if checkIfThereIsPieceInCoords(newCoords, board) {
 						if !checkIfAllyInCoords(newCoords, color, board) {
-							moves = append(moves, newCoords)
+							filter(newCoords)
 						}
 						break
 					}
 
-					moves = append(moves, newCoords)
+					filter(newCoords)
 				}
 			}
 		}
@@ -323,12 +338,12 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 
 				if checkIfThereIsPieceInCoords(newCoords, board) {
 					if !checkIfAllyInCoords(newCoords, color, board) {
-						moves = append(moves, newCoords)
+						filter(newCoords)
 					}
 					break
 				}
 
-				moves = append(moves, newCoords)
+				filter(newCoords)
 			}
 		}
 		for _, colDirection := range []int{1, -1} {
@@ -337,22 +352,62 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 
 				if checkIfThereIsPieceInCoords(newCoords, board) {
 					if !checkIfAllyInCoords(newCoords, color, board) {
-						moves = append(moves, newCoords)
+						filter(newCoords)
 					}
 					break
 				}
 
-				moves = append(moves, newCoords)
+				filter(newCoords)
 			}
 		}
 	// Queen
 	case 'q':
-		moves = append(moves, c.calculateMoves('b', coord, board, maxStep)...)
-		moves = append(moves, c.calculateMoves('r', coord, board, maxStep)...)
+		moves = append(moves, c.calculateMoves(determineColorPiece(color, 'b'), coord, board, maxStep)...)
+		moves = append(moves, c.calculateMoves(determineColorPiece(color, 'r'), coord, board, maxStep)...)
 	// King
 	case 'k':
-		moves = append(moves, c.calculateMoves('q', coord, board, 1)...)
+		moves = append(moves, c.calculateMoves(determineColorPiece(color, 'q'), coord, board, 1)...)
 	}
 
 	return moves
+}
+
+// checkIfChecked checks if the king is checked
+func (c *Chess) checkIfChecked(color rune, board Board) bool {
+	var king rune
+	if color == 'w' {
+		king = 'K'
+	} else {
+		king = 'k'
+	}
+
+	var kingCoord Coords
+
+	for y, row := range board {
+		for x, piece := range row {
+			if piece == king {
+				kingCoord.col = x
+				kingCoord.row = y
+			}
+		}
+	}
+
+	for _, attackingPiece := range []rune{'p', 'n', 'b', 'r', 'q'} {
+		attackingPiece = determineColorPiece(color, attackingPiece)
+		enemyPiece := determineEnemyVersion(attackingPiece)
+		moves := c.calculateMoves(attackingPiece, &kingCoord, board, MaxStep)
+
+		for _, move := range moves {
+			if determinePieceWithCoords(move, board) == enemyPiece {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func movePiece(from *Coords, to *Coords, board *Board) {
+	board[to.row][to.col] = board[from.row][from.col]
+	board[from.row][from.col] = '-'
 }

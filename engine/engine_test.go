@@ -135,7 +135,7 @@ func TestEngine_decodeFen(t *testing.T) {
 				{'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'},
 				{'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'},
 			},
-			turn: "w",
+			turn: 'w',
 			castle: CastleAvailability{
 				WhiteKing:  true,
 				WhiteQueen: true,
@@ -157,7 +157,7 @@ func TestEngine_decodeFen(t *testing.T) {
 				{'P', 'P', 'P', 'P', '-', 'P', 'P', 'P'},
 				{'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'},
 			},
-			turn: "w",
+			turn: 'w',
 			castle: CastleAvailability{
 				WhiteKing:  true,
 				WhiteQueen: false,
@@ -183,7 +183,7 @@ func TestEngine_decodeFen(t *testing.T) {
 		}
 	}
 }
-func TestEngine_calculateValidPaths(t *testing.T) {
+func TestEngine_calculateValidMoves(t *testing.T) {
 	inputs := []string{
 		"a6",
 		"a2",
@@ -219,6 +219,37 @@ func TestEngine_calculateValidPaths(t *testing.T) {
 		if !reflect.DeepEqual(output, expectedOutput) {
 			chess.PrintBoard()
 			t.Errorf("FAILED: %s\n\tgot:     %+v\n\texpected:%+v", input, outputReadable, expectedOutputReadable)
+		}
+	}
+}
+
+func TestEngine_checkIfChecked(t *testing.T) {
+	inputs := []string{
+		"rnbqkbnr/ppppp1pp/8/7B/8/8/PPPPPPPP/RNBQKBNR b Kq c5 5 23",
+		"rnbqkbnr/pppppPpp/8/8/8/8/PPPPPPPP/RNBQKBNR b Kq c5 5 23",
+		"rnbqkbnr/pppppppp/8/7B/8/8/PPPPPPPP/RNBQKBNR b Kq c5 5 23",
+		"rnbqkbnr/pppp1ppp/8/4R3/8/8/PPPPPPPP/RNBQKBNR b Kq c5 5 23",
+		"rnbqkbnr/pppp1ppp/8/4R3/8/4q3/PPPP1PPP/RNBQKBNR w Kq c5 5 23",
+		"rnbqkbnr/pppp1ppp/8/4R3/8/4q3/PPPPPPPP/RNBQKBNR w Kq c5 5 23",
+		"rnbqkbnr/pppp1ppp/8/4R3/7q/4q3/PPPPP1PP/RNBQKBNR w Kq c5 5 23",
+	}
+	expectedOutputs := []bool{
+		true,
+		true,
+		false,
+		true,
+		true,
+		false,
+		true,
+	}
+
+	for i, input := range inputs {
+		chess, _ := NewChessGameWithFen(input)
+		expected := expectedOutputs[i]
+		output := chess.checkIfChecked(chess.turn, chess.boardTable)
+
+		if output != expected {
+			t.Errorf("FAILED\n\tgot:     %+v\n\texpected:%+v", output, expected)
 		}
 	}
 }

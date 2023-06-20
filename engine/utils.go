@@ -57,3 +57,21 @@ func checkIfAllyInCoords(coord *Coords, color rune, board Board) bool {
 
 	return colorInCoord == color
 }
+
+// determineColorPiece returns the enemy equivalent of piece
+func determineColorPiece(color, piece rune) rune {
+	if color == 'w' {
+		return unicode.ToUpper(piece)
+	} else {
+		return unicode.ToLower(piece)
+	}
+}
+
+// determineEnemyVersion returns the enemy version of the piece
+func determineEnemyVersion(piece rune) rune {
+	if unicode.IsUpper(piece) {
+		return unicode.ToLower(piece)
+	} else {
+		return unicode.ToUpper(piece)
+	}
+}
