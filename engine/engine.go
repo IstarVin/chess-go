@@ -372,14 +372,24 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 	return moves
 }
 
+// checkIfMate checks if the king is mated
+func (c *Chess) checkIfMate(color rune) bool {
+	for y, row := range c.boardTable {
+		for x, piece := range row {
+			if determineColor(piece) == color {
+				if len(c.calculateValidMoves(piece, &Coords{y, x})) > 0 {
+					return false
+				}
+			}
+		}
+	}
+
+	return true
+}
+
 // checkIfChecked checks if the king is checked
 func (c *Chess) checkIfChecked(color rune, board Board) bool {
-	var king rune
-	if color == 'w' {
-		king = 'K'
-	} else {
-		king = 'k'
-	}
+	king := determineColorPiece(color, 'k')
 
 	var kingCoord Coords
 
