@@ -34,11 +34,9 @@ func TestEngine_determineColor(t *testing.T) {
 		'b', 'b', 'w', 'w', '-',
 	}
 
-	chess := NewGameChess()
-
 	for i, input := range inputs {
 		expected := expectedOutputs[i]
-		output := chess.determineColor(input)
+		output := determineColor(input)
 
 		if output != expected {
 			t.Errorf("FAILED\n\tgot: %+v\n\texpected:%+v", output, expected)
@@ -66,7 +64,7 @@ func TestEngine_determinePieceWithCoords(t *testing.T) {
 
 	for i, input := range inputs {
 		expected := expectedOutputs[i]
-		output := chess.determinePieceWithCoords(input)
+		output := determinePieceWithCoords(input, chess.boardTable)
 
 		if output != expected {
 			t.Errorf("FAILED\n\tgot: %+v\n\texpected:%+v", output, expected)
@@ -86,10 +84,8 @@ func TestEngine_translateCBtoCoords(t *testing.T) {
 		nil,
 	}
 
-	chess := NewGameChess()
-
 	for i, input := range inputs {
-		output := chess.translateCBtoCoords(input)
+		output := translateCBtoCoords(input)
 		expected := expectedOutputs[i]
 
 		if !reflect.DeepEqual(output, expected) {
@@ -129,7 +125,7 @@ func TestEngine_decodeFen(t *testing.T) {
 
 	expectedOutputs := []*Chess{
 		{
-			boardTable: [8][8]rune{
+			boardTable: Board{
 				{'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'},
 				{'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'},
 				{'-', '-', '-', '-', '-', '-', '-', '-'},
@@ -151,7 +147,7 @@ func TestEngine_decodeFen(t *testing.T) {
 			fullmoves:   1,
 		},
 		{
-			boardTable: [8][8]rune{
+			boardTable: Board{
 				{'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'},
 				{'p', 'p', '-', 'p', 'p', 'p', 'p', 'p'},
 				{'-', '-', '-', '-', '-', '-', '-', '-'},
@@ -204,7 +200,9 @@ func TestEngine_calculateValidPaths(t *testing.T) {
 	for i, input := range inputs {
 
 		expectedOutput := expectedOutputs[i]
-		output := chess.calculateValidPaths(chess.translateCBtoCoords(input))
+		coords := translateCBtoCoords(input)
+		piece := determinePieceWithCoords(coords, chess.boardTable)
+		output := chess.calculateValidMoves(piece, coords)
 
 		var expectedOutputReadable []string
 		for _, expectedRaw := range expectedOutput {

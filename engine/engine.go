@@ -24,25 +24,18 @@ func NewChessGameWithFen(fen string) (*Chess, error) {
 	return &chess, nil
 }
 
-type CastleAvailability struct {
-	WhiteKing  bool
-	WhiteQueen bool
-	BlackKing  bool
-	BlackQueen bool
-}
-
-type Coords struct {
-	row int
-	col int
-}
-
 type Chess struct {
-	boardTable  [8][8]rune
+	boardTable  Board
 	turn        string
 	castle      CastleAvailability
 	pawnPassant string
 	halfmoves   int
 	fullmoves   int
+}
+
+// Move moves a piece
+func (c *Chess) Move(from, to string) {
+
 }
 
 // PrintBoard prints the board
@@ -112,44 +105,6 @@ func (c *Chess) GetFEN() string {
 	fen += " " + strconv.Itoa(c.fullmoves)
 
 	return fen
-}
-
-// determineColor returns the color of the entered piece
-func (c *Chess) determineColor(piece rune) rune {
-	if piece == '-' {
-		return piece
-	}
-
-	if piece == unicode.ToUpper(piece) {
-		return 'w'
-	} else {
-		return 'b'
-	}
-}
-
-func (c *Chess) determinePieceWithCoords(coord *Coords) rune {
-	if coord.row < 0 || coord.row > 7 || coord.col < 0 || coord.col > 7 {
-		return '-'
-	}
-
-	return c.boardTable[coord.row][coord.col]
-}
-
-// translateCBtoCoords translates chessboard notation to coordinates
-func (c *Chess) translateCBtoCoords(cb string) *Coords {
-	column := rune(cb[0])
-	// Check if column is within range
-	if column > 104 || column < 97 {
-		return nil
-	}
-
-	row := rune(cb[1])
-	// Check if row is within range
-	if row > 56 || row < 49 {
-		return nil
-	}
-
-	return &Coords{int('8' - row), int(column - 'a')}
 }
 
 // translateCoordsToCB translates coordinates to chessboard notation
@@ -224,7 +179,7 @@ func (c *Chess) decodeFen(fen string) error {
 
 	// Pawn Passant
 	c.pawnPassant = splitFen[3]
-	if c.translateCBtoCoords(c.pawnPassant) == nil && c.pawnPassant != "-" {
+	if translateCBtoCoords(c.pawnPassant) == nil && c.pawnPassant != "-" {
 		c.pawnPassant = "-"
 		return &FENError{err: "invalid pawn passant"}
 	}
@@ -244,17 +199,32 @@ func (c *Chess) decodeFen(fen string) error {
 	return nil
 }
 
-// calculateValidPaths calculates the valid paths in a given piece coordinate
-func (c *Chess) calculateValidPaths(coord *Coords) []*Coords {
-	piece := c.determinePieceWithCoords(coord)
-	color := c.determineColor(piece)
-
+// calculateValidMoves calculates the valid paths in a given piece coordinate
+func (c *Chess) calculateValidMoves(piece rune, coord *Coords) []*Coords {
 	var validMoves []*Coords
+
+	moves := c.calculateMoves(piece, coord, c.boardTable)
+
+	for _, move := range moves {
+		// Check if in bounds
+		if checkIfCoordsIsOutOfBounds(move) {
+			continue
+		}
+
+		validMoves = append(validMoves, move)
+	}
+
+	return validMoves
+}
+
+// calculateMoves calculates the paths in a given piece and coordinate
+func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board) []*Coords {
+	var moves []*Coords
+	color := determineColor(piece)
 
 	switch unicode.ToLower(piece) {
 	// Pawn
 	case 'p':
-		// Determine the startingRow, enpassantRow, numOfMoves, and direction
 		var startingRow, direction int
 		if color == 'w' {
 			startingRow = 6
@@ -272,31 +242,23 @@ func (c *Chess) calculateValidPaths(coord *Coords) []*Coords {
 		for i := 0; i < numOfMoves; i++ {
 			newCoords := &Coords{coord.row + direction*(i+1), coord.col}
 
-			if c.checkIfCoordsIsNotValid(newCoords) {
-				continue
-			}
-
-			if c.checkIfThereIsPieceInCoords(newCoords) {
+			if checkIfThereIsPieceInCoords(newCoords, board) {
 				break
 			}
 
-			validMoves = append(validMoves, newCoords)
+			moves = append(moves, newCoords)
 		}
 
 		for _, sideDirection := range []int{1, -1} {
 			newCoords := &Coords{coord.row + direction, coord.col + sideDirection}
 
-			if c.checkIfCoordsIsNotValid(newCoords) {
-				continue
-			}
-
-			if !c.checkIfThereIsPieceInCoords(newCoords) {
+			if !checkIfThereIsPieceInCoords(newCoords, board) {
 				if c.pawnPassant == "-" {
 					continue
 				}
 
-				pawnPassantCoord := c.translateCBtoCoords(c.pawnPassant)
-				if c.checkIfAllyInCoords(pawnPassantCoord, color) {
+				pawnPassantCoord := translateCBtoCoords(c.pawnPassant)
+				if checkIfAllyInCoords(pawnPassantCoord, color, board) {
 					continue
 				}
 
@@ -305,42 +267,28 @@ func (c *Chess) calculateValidPaths(coord *Coords) []*Coords {
 				}
 			}
 
-			if c.checkIfAllyInCoords(newCoords, color) {
+			if checkIfAllyInCoords(newCoords, color, board) {
 				continue
 			}
 
-			validMoves = append(validMoves, newCoords)
+			moves = append(moves, newCoords)
 		}
-
 	// Knight
 	case 'n':
 
+	// Bishop
 	case 'b':
+
+	// Rook
 	case 'r':
+
+	// Queen
 	case 'q':
+
+	// King
 	case 'k':
 
 	}
 
-	return validMoves
-}
-
-// checkIfCoordsIsNotValid
-func (c *Chess) checkIfCoordsIsNotValid(coord *Coords) bool {
-	if coord.row > 7 || coord.row < 0 || coord.col > 7 || coord.col < 0 {
-		return true
-	}
-	return false
-}
-
-// checkIfThereIsPieceInCoords
-func (c *Chess) checkIfThereIsPieceInCoords(coord *Coords) bool {
-	return c.determinePieceWithCoords(coord) != '-'
-}
-
-// checkIfAllyInCoords
-func (c *Chess) checkIfAllyInCoords(coord *Coords, color rune) bool {
-	colorInCoord := c.determineColor(c.determinePieceWithCoords(coord))
-
-	return colorInCoord == color
+	return moves
 }
