@@ -10,6 +10,9 @@ import (
 //
 //}
 
+func TestEngine_Move(t *testing.T) {
+
+}
 func TestEngine_GetFen(t *testing.T) {
 	inputs := []string{
 		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
@@ -203,8 +206,7 @@ func TestEngine_calculateValidMoves(t *testing.T) {
 
 		expectedOutput := expectedOutputs[i]
 		coords := translateCBtoCoords(input)
-		piece := determinePieceWithCoords(coords, chess.boardTable)
-		output := chess.calculateValidMoves(piece, coords)
+		output := chess.CalculateValidMoves(coords)
 
 		var expectedOutputReadable []string
 		for _, expectedRaw := range expectedOutput {
@@ -222,7 +224,6 @@ func TestEngine_calculateValidMoves(t *testing.T) {
 		}
 	}
 }
-
 func TestEngine_checkIfChecked(t *testing.T) {
 	inputs := []string{
 		"rnbqkbnr/ppppp1pp/8/7B/8/8/PPPPPPPP/RNBQKBNR b Kq c5 5 23",

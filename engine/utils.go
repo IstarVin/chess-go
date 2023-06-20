@@ -75,3 +75,9 @@ func determineEnemyVersion(piece rune) rune {
 		return unicode.ToUpper(piece)
 	}
 }
+
+// movePiece moves piece in board
+func movePiece(from *Coords, to *Coords, board *Board) {
+	board[to.row][to.col] = board[from.row][from.col]
+	board[from.row][from.col] = '-'
+}

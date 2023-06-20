@@ -49,6 +49,29 @@ func (c *Chess) PrintBoard() {
 	}
 }
 
+// CalculateValidMoves calculates the valid paths in a given piece coordinate
+func (c *Chess) CalculateValidMoves(coord *Coords) []*Coords {
+	var validMoves []*Coords
+
+	piece := determinePieceWithCoords(coord, c.boardTable)
+	color := determineColor(piece)
+
+	moves := c.calculateMoves(piece, coord, c.boardTable, MaxStep)
+
+	for _, move := range moves {
+		newBoard := c.boardTable
+		movePiece(coord, move, &newBoard)
+
+		if c.checkIfChecked(color, newBoard) {
+			continue
+		}
+
+		validMoves = append(validMoves, move)
+	}
+
+	return validMoves
+}
+
 // GetFEN returns the FEN string of the current chess game
 func (c *Chess) GetFEN() string {
 	var fen string
@@ -203,28 +226,6 @@ func (c *Chess) decodeFen(fen string) error {
 	return nil
 }
 
-// calculateValidMoves calculates the valid paths in a given piece coordinate
-func (c *Chess) calculateValidMoves(piece rune, coord *Coords) []*Coords {
-	var validMoves []*Coords
-
-	color := determineColor(piece)
-
-	moves := c.calculateMoves(piece, coord, c.boardTable, MaxStep)
-
-	for _, move := range moves {
-		newBoard := c.boardTable
-		movePiece(coord, move, &newBoard)
-
-		if c.checkIfChecked(color, newBoard) {
-			continue
-		}
-
-		validMoves = append(validMoves, move)
-	}
-
-	return validMoves
-}
-
 // TODO: optimize move calculations
 // calculateMoves calculates the paths in a given piece and coordinate
 func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep int) []*Coords {
@@ -377,7 +378,7 @@ func (c *Chess) checkIfMate(color rune) bool {
 	for y, row := range c.boardTable {
 		for x, piece := range row {
 			if determineColor(piece) == color {
-				if len(c.calculateValidMoves(piece, &Coords{y, x})) > 0 {
+				if len(c.CalculateValidMoves(&Coords{y, x})) > 0 {
 					return false
 				}
 			}
@@ -415,9 +416,4 @@ func (c *Chess) checkIfChecked(color rune, board Board) bool {
 	}
 
 	return false
-}
-
-func movePiece(from *Coords, to *Coords, board *Board) {
-	board[to.row][to.col] = board[from.row][from.col]
-	board[from.row][from.col] = '-'
 }
