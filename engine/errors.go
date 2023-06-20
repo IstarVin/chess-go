@@ -7,3 +7,11 @@ type FENError struct {
 func (F *FENError) Error() string {
 	return "Invalid FEN: " + F.err
 }
+
+type MoveError struct {
+	err string
+}
+
+func (m *MoveError) Error() string {
+	return "Invalid Move: " + m.err
+}

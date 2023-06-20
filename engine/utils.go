@@ -81,3 +81,22 @@ func movePiece(from *Coords, to *Coords, board *Board) {
 	board[to.row][to.col] = board[from.row][from.col]
 	board[from.row][from.col] = '-'
 }
+
+// translateCoordsToCB translates coordinates to chessboard notation
+func translateCoordsToCB(coord *Coords) string {
+	if coord.row < 0 || coord.row > 7 || coord.col < 0 || coord.col > 7 {
+		return ""
+	}
+
+	return string('a'+rune(coord.col)) + string('8'-rune(coord.row))
+}
+
+func checkIfMovesContains(moves *[]*Coords, move *Coords) bool {
+	for _, m := range *moves {
+		if *m == *move {
+			return true
+		}
+	}
+
+	return false
+}

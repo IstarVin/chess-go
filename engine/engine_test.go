@@ -109,10 +109,8 @@ func TestEngine_translateCoordsToCB(t *testing.T) {
 		"f4",
 	}
 
-	chess := NewGameChess()
-
 	for i, input := range inputs {
-		output := chess.translateCoordsToCB(input)
+		output := translateCoordsToCB(input)
 		expected := expectedOutputs[i]
 
 		if !reflect.DeepEqual(output, expected) {
@@ -206,16 +204,16 @@ func TestEngine_calculateValidMoves(t *testing.T) {
 
 		expectedOutput := expectedOutputs[i]
 		coords := translateCBtoCoords(input)
-		output := chess.CalculateValidMoves(coords)
+		output := chess.calculateValidMoves(coords)
 
 		var expectedOutputReadable []string
 		for _, expectedRaw := range expectedOutput {
-			expectedOutputReadable = append(expectedOutputReadable, chess.translateCoordsToCB(expectedRaw))
+			expectedOutputReadable = append(expectedOutputReadable, translateCoordsToCB(expectedRaw))
 		}
 
 		var outputReadable []string
 		for _, outputRaw := range output {
-			outputReadable = append(outputReadable, chess.translateCoordsToCB(outputRaw))
+			outputReadable = append(outputReadable, translateCoordsToCB(outputRaw))
 		}
 
 		if !reflect.DeepEqual(output, expectedOutput) {

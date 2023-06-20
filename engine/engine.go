@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"unicode"
@@ -35,8 +36,18 @@ type Chess struct {
 }
 
 // Move moves a piece
-func (c *Chess) Move(from, to string) {
+func (c *Chess) Move(from, to string) error {
+	fromCoords := translateCBtoCoords(from)
+	toCoords := translateCBtoCoords(to)
 
+	validMoves := c.calculateValidMoves(fromCoords)
+	if !checkIfMovesContains(&validMoves, toCoords) {
+		return &MoveError{err: fmt.Sprintf("not a valid move from %s to %s", from, to)}
+	}
+
+	movePiece(fromCoords, toCoords, &c.boardTable)
+
+	return nil
 }
 
 // PrintBoard prints the board
@@ -49,24 +60,14 @@ func (c *Chess) PrintBoard() {
 	}
 }
 
-// CalculateValidMoves calculates the valid paths in a given piece coordinate
-func (c *Chess) CalculateValidMoves(coord *Coords) []*Coords {
-	var validMoves []*Coords
+// CalculateValidMoves calculates the valid paths in a given cb notation
+func (c *Chess) CalculateValidMoves(cb string) []string {
+	coords := translateCBtoCoords(cb)
 
-	piece := determinePieceWithCoords(coord, c.boardTable)
-	color := determineColor(piece)
+	var validMoves []string
 
-	moves := c.calculateMoves(piece, coord, c.boardTable, MaxStep)
-
-	for _, move := range moves {
-		newBoard := c.boardTable
-		movePiece(coord, move, &newBoard)
-
-		if c.checkIfChecked(color, newBoard) {
-			continue
-		}
-
-		validMoves = append(validMoves, move)
+	for _, move := range c.calculateValidMoves(coords) {
+		validMoves = append(validMoves, translateCoordsToCB(move))
 	}
 
 	return validMoves
@@ -129,15 +130,6 @@ func (c *Chess) GetFEN() string {
 	fen += " " + strconv.Itoa(c.fullmoves)
 
 	return fen
-}
-
-// translateCoordsToCB translates coordinates to chessboard notation
-func (c *Chess) translateCoordsToCB(coord *Coords) string {
-	if coord.row < 0 || coord.row > 7 || coord.col < 0 || coord.col > 7 {
-		return ""
-	}
-
-	return string('a'+rune(coord.col)) + string('8'-rune(coord.row))
 }
 
 // decodeFen decodes a FEN string into the chess struct
@@ -224,6 +216,29 @@ func (c *Chess) decodeFen(fen string) error {
 	}
 
 	return nil
+}
+
+// calculateValidMoves calculates the valid paths in a given piece coordinate
+func (c *Chess) calculateValidMoves(coord *Coords) []*Coords {
+	var validMoves []*Coords
+
+	piece := determinePieceWithCoords(coord, c.boardTable)
+	color := determineColor(piece)
+
+	moves := c.calculateMoves(piece, coord, c.boardTable, MaxStep)
+
+	for _, move := range moves {
+		newBoard := c.boardTable
+		movePiece(coord, move, &newBoard)
+
+		if c.checkIfChecked(color, newBoard) {
+			continue
+		}
+
+		validMoves = append(validMoves, move)
+	}
+
+	return validMoves
 }
 
 // TODO: optimize move calculations
@@ -378,7 +393,7 @@ func (c *Chess) checkIfMate(color rune) bool {
 	for y, row := range c.boardTable {
 		for x, piece := range row {
 			if determineColor(piece) == color {
-				if len(c.CalculateValidMoves(&Coords{y, x})) > 0 {
+				if len(c.calculateValidMoves(&Coords{y, x})) > 0 {
 					return false
 				}
 			}
