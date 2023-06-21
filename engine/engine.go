@@ -92,10 +92,37 @@ func (c *Chess) Move(from, to string) (int, error) {
 	// Post process
 	switch unicode.ToLower(piece) {
 	case 'p':
+		// Check if pawn moves 2 times
 		if math.Abs(float64(fromCoords.row-toCoords.row)) == 2 {
 			c.pawnPassant = from
 		}
 		c.halfmoves = 0
+
+	case 'r':
+		// TODO: finish this
+
+	case 'k':
+		// Determine the row of the king
+		kingRow := 0
+		if color == 'w' {
+			kingRow = 7
+		}
+
+		// Move rook if king castled
+		if fromCoords.row-toCoords.row == 2 {
+			movePiece(&Coords{row: kingRow, col: 0}, &Coords{row: kingRow, col: 3}, &c.boardTable)
+		} else if fromCoords.row-toCoords.row == -2 {
+			movePiece(&Coords{row: kingRow, col: 7}, &Coords{row: kingRow, col: 5}, &c.boardTable)
+		}
+
+		// Make castle availability false if king moved
+		if color == 'w' {
+			c.castle.WhiteKing = false
+			c.castle.WhiteQueen = false
+		} else {
+			c.castle.BlackKing = false
+			c.castle.BlackQueen = false
+		}
 	}
 
 	// Increment fullmoves after the turn of black
@@ -439,6 +466,36 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 	// King
 	case 'k':
 		moves = append(moves, c.calculateMoves(determineColorPiece(color, 'q'), coord, board, 1)...)
+
+		// TODO: fix this
+
+		if color == 'w' {
+			if c.castle.WhiteKing {
+				moves = append(moves, &Coords{
+					row: 7,
+					col: 6,
+				})
+			}
+			if c.castle.WhiteQueen {
+				moves = append(moves, &Coords{
+					row: 7,
+					col: 2,
+				})
+			}
+		} else {
+			if c.castle.BlackKing {
+				moves = append(moves, &Coords{
+					row: 0,
+					col: 6,
+				})
+			}
+			if c.castle.BlackQueen {
+				moves = append(moves, &Coords{
+					row: 0,
+					col: 2,
+				})
+			}
+		}
 	}
 
 	return moves
