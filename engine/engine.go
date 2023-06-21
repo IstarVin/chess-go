@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"unicode"
@@ -33,34 +34,77 @@ type Chess struct {
 	pawnPassant string
 	halfmoves   int
 	fullmoves   int
+
+	winner rune
 }
 
 // Move moves a piece
-func (c *Chess) Move(from, to string) error {
+func (c *Chess) Move(from, to string) (int, error) {
 	if from == to {
-		return &MoveError{err: "no move happened"}
+		return -1, &MoveError{err: "no move happened"}
 	}
 
 	fromCoords := translateCBtoCoords(from)
 	toCoords := translateCBtoCoords(to)
 
+	piece := determinePieceWithCoords(fromCoords, c.boardTable)
+
+	color := determineColor(piece)
+	enemy := determineEnemy(color)
+
+	// Check if current turn
+	if color != c.turn {
+		return -1, &MoveError{err: "Not current turn"}
+	}
+
+	// Check if valid move
 	validMoves := c.calculateValidMoves(fromCoords)
 	if !checkIfMovesContains(&validMoves, toCoords) {
-		return &MoveError{err: fmt.Sprintf("not a valid move from %s to %s", from, to)}
+		return -1, &MoveError{err: fmt.Sprintf("not a valid move from %s to %s", from, to)}
+	}
+
+	statusCode := 0
+
+	c.halfmoves++
+
+	// Check if capture then reset halfmoves
+	if determinePieceWithCoords(toCoords, c.boardTable) != '-' {
+		c.halfmoves = 0
 	}
 
 	movePiece(fromCoords, toCoords, &c.boardTable)
 
-	piece := determinePieceWithCoords(fromCoords, c.boardTable)
+	// Check if checked
+	if c.checkIfChecked(enemy, c.boardTable) {
+		statusCode = 1
 
-	switch unicode.ToLower(piece) {
-	case 'p':
-
+		if c.checkIfMate(enemy) {
+			statusCode = 2
+			c.winner = c.turn
+		}
 	}
 
-	return nil
+	// Post process
+	switch unicode.ToLower(piece) {
+	case 'p':
+		if math.Abs(float64(fromCoords.row-toCoords.row)) == 2 {
+			c.pawnPassant = from
+		}
+		c.halfmoves = 0
+	}
+
+	// Increment fullmoves after the turn of black
+	if c.turn == 'b' {
+		c.fullmoves++
+	}
+
+	// Switch the turn
+	c.turn = enemy
+
+	return statusCode, nil
 }
 
+// PrintBoard TODO: Improve this
 // PrintBoard prints the board
 func (c *Chess) PrintBoard() {
 	for i, row := range c.boardTable {
@@ -254,7 +298,7 @@ func (c *Chess) calculateValidMoves(coord *Coords) []*Coords {
 	return validMoves
 }
 
-// TODO: optimize move calculations
+// calculateMoves TODO: optimize move calculations
 // calculateMoves calculates the paths in a given piece and coordinate
 func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep int) []*Coords {
 	var moves []*Coords

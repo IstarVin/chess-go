@@ -100,3 +100,10 @@ func checkIfMovesContains(moves *[]*Coords, move *Coords) bool {
 
 	return false
 }
+
+func determineEnemy(color rune) rune {
+	if color == 'w' {
+		return 'b'
+	}
+	return 'w'
+}

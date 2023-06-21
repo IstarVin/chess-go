@@ -26,9 +26,14 @@ func main() {
 			break
 		}
 
-		err = chess.Move(from, to)
+		_, err1 := chess.Move(from, to)
 		if err != nil {
-			println(err.Error(), "\ntry again")
+			println(err1.Error(), "\ntry again")
+			var scan string
+			_, err1 = fmt.Scan(&scan)
+			if err1 != nil {
+				panic(err1)
+			}
 		}
 
 		exec.Command("clear")
