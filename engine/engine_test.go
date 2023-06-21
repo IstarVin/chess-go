@@ -13,7 +13,7 @@ import (
 func TestEngine_Move(t *testing.T) {
 	chess := NewGameChess()
 
-	err := chess.Move("b1", "c3")
+	_, err := chess.Move("b1", "c3")
 	if err != nil {
 		panic(err)
 	}

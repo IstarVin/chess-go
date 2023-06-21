@@ -38,7 +38,12 @@ type Chess struct {
 	winner rune
 }
 
-// Move moves a piece
+// Move moves a piece and returns statusCode (int) and error
+//
+// -1 = error
+// 0 = normal
+// 1 = check
+// 2 = checkmate
 func (c *Chess) Move(from, to string) (int, error) {
 	if from == to {
 		return -1, &MoveError{err: "no move happened"}
@@ -304,7 +309,7 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 	var moves []*Coords
 	color := determineColor(piece)
 
-	filter := func(move *Coords) {
+	addMove := func(move *Coords) {
 		if !checkIfCoordsIsOutOfBounds(move) {
 			moves = append(moves, move)
 		}
@@ -334,7 +339,7 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 				break
 			}
 
-			filter(newCoords)
+			addMove(newCoords)
 		}
 
 		for _, sideDirection := range []int{1, -1} {
@@ -359,7 +364,7 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 				continue
 			}
 
-			filter(newCoords)
+			addMove(newCoords)
 		}
 	// Knight
 	case 'n':
@@ -371,7 +376,7 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 					continue
 				}
 
-				filter(newCoords)
+				addMove(newCoords)
 			}
 		}
 		for _, rowDirection := range []int{1, -1} {
@@ -382,7 +387,7 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 					continue
 				}
 
-				filter(newCoords)
+				addMove(newCoords)
 			}
 		}
 	// Bishop
@@ -394,43 +399,37 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 
 					if checkIfThereIsPieceInCoords(newCoords, board) {
 						if !checkIfAllyInCoords(newCoords, color, board) {
-							filter(newCoords)
+							addMove(newCoords)
 						}
 						break
 					}
 
-					filter(newCoords)
+					addMove(newCoords)
 				}
 			}
 		}
 	// Rook
 	case 'r':
-		for _, rowDirection := range []int{1, -1} {
-			for i := 0; i < maxStep; i++ {
-				newCoords := &Coords{coord.row + rowDirection*(i+1), coord.col}
-
-				if checkIfThereIsPieceInCoords(newCoords, board) {
-					if !checkIfAllyInCoords(newCoords, color, board) {
-						filter(newCoords)
+		for _, switcher := range []int{0, 1} {
+			for _, direction := range []int{1, -1} {
+				for i := 0; i < maxStep; i++ {
+					var switcher1 int
+					if switcher == 0 {
+						switcher1 = 1
+					} else {
+						switcher1 = 0
 					}
-					break
-				}
+					newCoords := &Coords{coord.row + direction*(i+1)*switcher, coord.col + direction*(i+1)*switcher1}
 
-				filter(newCoords)
-			}
-		}
-		for _, colDirection := range []int{1, -1} {
-			for i := 0; i < maxStep; i++ {
-				newCoords := &Coords{coord.row, coord.col + colDirection*(i+1)}
-
-				if checkIfThereIsPieceInCoords(newCoords, board) {
-					if !checkIfAllyInCoords(newCoords, color, board) {
-						filter(newCoords)
+					if checkIfThereIsPieceInCoords(newCoords, board) {
+						if !checkIfAllyInCoords(newCoords, color, board) {
+							addMove(newCoords)
+						}
+						break
 					}
-					break
-				}
 
-				filter(newCoords)
+					addMove(newCoords)
+				}
 			}
 		}
 	// Queen

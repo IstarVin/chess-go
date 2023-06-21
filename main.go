@@ -27,7 +27,7 @@ func main() {
 		}
 
 		_, err1 := chess.Move(from, to)
-		if err != nil {
+		if err1 != nil {
 			println(err1.Error(), "\ntry again")
 			var scan string
 			_, err1 = fmt.Scan(&scan)
