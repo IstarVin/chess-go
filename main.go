@@ -9,7 +9,6 @@ import (
 func main() {
 	chess := engine.NewGameChess()
 
-	var move string
 	var from, to string
 
 	for {
@@ -17,13 +16,8 @@ func main() {
 
 		fmt.Print("\nMake a move: ")
 		_, err := fmt.Scan(&from, &to)
-		println(move)
 		if err != nil {
 			panic(err)
-		}
-
-		if move == "exit" {
-			break
 		}
 
 		_, err1 := chess.Move(from, to)

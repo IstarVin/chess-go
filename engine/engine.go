@@ -312,15 +312,11 @@ func (c *Chess) calculateValidMoves(coord *Coords) []*Coords {
 	var validMoves []*Coords
 
 	piece := determinePieceWithCoords(coord, c.boardTable)
-	color := determineColor(piece)
 
 	moves := c.calculateMoves(piece, coord, c.boardTable, MaxStep)
 
 	for _, move := range moves {
-		newBoard := c.boardTable
-		movePiece(coord, move, &newBoard)
-
-		if c.checkIfChecked(color, newBoard) {
+		if c.checkIfMoveIsCheck(coord, move, c.boardTable) {
 			continue
 		}
 
@@ -337,9 +333,12 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 	color := determineColor(piece)
 
 	addMove := func(move *Coords) {
-		if !checkIfCoordsIsOutOfBounds(move) {
-			moves = append(moves, move)
+		// Check if the move is out of bounds
+		if checkIfCoordsIsOutOfBounds(move) {
+			return
 		}
+
+		moves = append(moves, move)
 	}
 
 	switch unicode.ToLower(piece) {
@@ -467,33 +466,44 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 	case 'k':
 		moves = append(moves, c.calculateMoves(determineColorPiece(color, 'q'), coord, board, 1)...)
 
-		// TODO: fix this
+		// Break if the king is checked
+		if c.checkIfChecked(color, board) {
+			break
+		}
+
+		// Define row based on color
+		whiteRow := 7
+		blackRow := 0
+
+		// Define col
+		kingSideCol := 5
+		queenSideCol := 3
+
+		// Define coords of castle
+		whiteKing := &Coords{row: whiteRow, col: kingSideCol}
+		whiteQueen := &Coords{row: whiteRow, col: queenSideCol}
+		blackKing := &Coords{row: blackRow, col: kingSideCol}
+		blackQueen := &Coords{row: blackRow, col: queenSideCol}
+
+		// Define coords of side of castle
+		whiteKing1 := &Coords{row: whiteRow, col: kingSideCol + 1}
+		whiteQueen1 := &Coords{row: whiteRow, col: queenSideCol - 1}
+		blackKing1 := &Coords{row: blackRow, col: kingSideCol + 1}
+		blackQueen1 := &Coords{row: blackRow, col: queenSideCol - 1}
 
 		if color == 'w' {
-			if c.castle.WhiteKing {
-				moves = append(moves, &Coords{
-					row: 7,
-					col: 6,
-				})
+			if c.castle.WhiteKing && !c.checkIfMoveIsCheck(coord, whiteKing1, board) {
+				moves = append(moves, whiteKing)
 			}
-			if c.castle.WhiteQueen {
-				moves = append(moves, &Coords{
-					row: 7,
-					col: 2,
-				})
+			if c.castle.WhiteQueen && !c.checkIfMoveIsCheck(coord, whiteQueen1, board) {
+				moves = append(moves, whiteQueen)
 			}
 		} else {
-			if c.castle.BlackKing {
-				moves = append(moves, &Coords{
-					row: 0,
-					col: 6,
-				})
+			if c.castle.BlackKing && !c.checkIfMoveIsCheck(coord, blackKing1, board) {
+				moves = append(moves, blackKing)
 			}
-			if c.castle.BlackQueen {
-				moves = append(moves, &Coords{
-					row: 0,
-					col: 2,
-				})
+			if c.castle.BlackQueen && !c.checkIfMoveIsCheck(coord, blackQueen1, board) {
+				moves = append(moves, blackQueen)
 			}
 		}
 	}
@@ -543,5 +553,15 @@ func (c *Chess) checkIfChecked(color rune, board Board) bool {
 		}
 	}
 
+	return false
+}
+
+func (c *Chess) checkIfMoveIsCheck(from *Coords, to *Coords, board Board) bool {
+	color := determineColor(determinePieceWithCoords(from, board))
+	movePiece(from, to, &board)
+
+	if c.checkIfChecked(color, board) {
+		return true
+	}
 	return false
 }
