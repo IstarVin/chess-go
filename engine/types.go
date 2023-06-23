@@ -13,3 +13,14 @@ type Coords struct {
 	row int
 	col int
 }
+
+type Chess struct {
+	boardTable  Board
+	turn        rune
+	castle      CastleAvailability
+	pawnPassant string
+	halfmoves   int
+	fullmoves   int
+
+	winner rune
+}

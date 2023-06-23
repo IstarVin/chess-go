@@ -10,7 +10,7 @@ import (
 
 const (
 	DefaultFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-	MaxStep    = 7
+	maxStep    = 7
 )
 
 func NewGameChess() *Chess {
@@ -25,17 +25,6 @@ func NewChessGameWithFen(fen string) (*Chess, error) {
 		return nil, err
 	}
 	return &chess, nil
-}
-
-type Chess struct {
-	boardTable  Board
-	turn        rune
-	castle      CastleAvailability
-	pawnPassant string
-	halfmoves   int
-	fullmoves   int
-
-	winner rune
 }
 
 // Move moves a piece and returns statusCode (int) and error
@@ -99,10 +88,22 @@ func (c *Chess) Move(from, to string) (int, error) {
 		c.halfmoves = 0
 
 	case 'r':
-		// TODO: finish this
+		if color == 'w' {
+			if fromCoords.col == 7 {
+				c.castle.WhiteKing = false
+			} else if fromCoords.col == 0 {
+				c.castle.WhiteQueen = false
+			}
+		} else {
+			if fromCoords.col == 7 {
+				c.castle.BlackKing = false
+			} else if fromCoords.col == 0 {
+				c.castle.BlackQueen = false
+			}
+		}
 
 	case 'k':
-		// Determine the row of the king
+		// Determine the row of the king based on color
 		kingRow := 0
 		if color == 'w' {
 			kingRow = 7
@@ -313,7 +314,7 @@ func (c *Chess) calculateValidMoves(coord *Coords) []*Coords {
 
 	piece := determinePieceWithCoords(coord, c.boardTable)
 
-	moves := c.calculateMoves(piece, coord, c.boardTable, MaxStep)
+	moves := c.calculateMoves(piece, coord, c.boardTable, maxStep)
 
 	for _, move := range moves {
 		if c.checkIfMoveIsCheck(coord, move, c.boardTable) {
@@ -445,7 +446,11 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 					} else {
 						switcher1 = 0
 					}
-					newCoords := &Coords{coord.row + direction*(i+1)*switcher, coord.col + direction*(i+1)*switcher1}
+
+					newCoords := &Coords{
+						coord.row + direction*(i+1)*switcher,
+						coord.col + direction*(i+1)*switcher1,
+					}
 
 					if checkIfThereIsPieceInCoords(newCoords, board) {
 						if !checkIfAllyInCoords(newCoords, color, board) {
@@ -544,7 +549,7 @@ func (c *Chess) checkIfChecked(color rune, board Board) bool {
 	for _, attackingPiece := range []rune{'p', 'n', 'b', 'r', 'q'} {
 		attackingPiece = determineColorPiece(color, attackingPiece)
 		enemyPiece := determineEnemyVersion(attackingPiece)
-		moves := c.calculateMoves(attackingPiece, &kingCoord, board, MaxStep)
+		moves := c.calculateMoves(attackingPiece, &kingCoord, board, maxStep)
 
 		for _, move := range moves {
 			if determinePieceWithCoords(move, board) == enemyPiece {
@@ -556,6 +561,7 @@ func (c *Chess) checkIfChecked(color rune, board Board) bool {
 	return false
 }
 
+// checkIfMoveIsCheck Check if the move leads to a check
 func (c *Chess) checkIfMoveIsCheck(from *Coords, to *Coords, board Board) bool {
 	color := determineColor(determinePieceWithCoords(from, board))
 	movePiece(from, to, &board)
