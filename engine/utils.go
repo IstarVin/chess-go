@@ -1,6 +1,8 @@
 package engine
 
-import "unicode"
+import (
+	"unicode"
+)
 
 // translateCBtoCoords translates chessboard notation to coordinates
 func translateCBtoCoords(cb string) *Coords {
@@ -106,4 +108,12 @@ func determineEnemy(color rune) rune {
 		return 'b'
 	}
 	return 'w'
+}
+
+func determineKingRow(color rune) int {
+	kingRow := 0
+	if color == 'w' {
+		kingRow = 7
+	}
+	return kingRow
 }

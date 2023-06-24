@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -27,11 +28,88 @@ func NewChessGameWithFen(fen string) (*Chess, error) {
 	return &chess, nil
 }
 
+// MovePGN moves a piece like Move with Portable Game Notation (PGN)
+func (c *Chess) MovePGN(pgn string) (int, error) {
+	// If move is castle
+	kingRow := 8 - determineKingRow(c.turn)
+	kingCoords := fmt.Sprintf("e%d", kingRow)
+	if strings.Contains(pgn, "0-0") {
+		var castleTo string
+		// King Side Castle
+		if pgn == "0-0" {
+			castleTo = fmt.Sprintf("g%d", kingRow)
+
+			// Queen Side Castle
+		} else if pgn == "0-0-0" {
+			castleTo = fmt.Sprintf("e%d", kingRow)
+		}
+		return c.Move(kingCoords, castleTo)
+	}
+
+	// Compile the regexp
+	toRE, _ := regexp.Compile("[a-h]\\d")
+	pieceRE, _ := regexp.Compile("[RNBQK]")
+	idRE, _ := regexp.Compile("[a-h1-8]")
+
+	// Determine to coordinate
+	to := toRE.FindString(pgn)
+	toCoords := translateCBtoCoords(to)
+
+	// Determine the piece
+	piece := pieceRE.FindString(pgn)
+
+	// Determine the ID
+	id := idRE.FindString(pgn)
+
+	// Determine if attack
+	isAttack := strings.Contains(pgn, "x")
+
+	// Determine the fromCoords
+	fromCoords := &Coords{}
+	switch piece {
+	case "R":
+	case "N":
+	case "B":
+	case "Q":
+	case "K":
+	case "":
+		var pawnCoords Coords
+		if isAttack {
+			pawnCoords.col = translateCBtoCoords(id + "1").col // TODO: optimize this
+		} else {
+			pawnCoords.col = toCoords.col
+		}
+
+		pawnPGN := func() bool {
+			for y, row := range c.boardTable {
+				if row[pawnCoords.col] == determineColorPiece(c.turn, 'p') {
+					pawnCoords.row = y
+					validMoves := c.calculateValidMoves(&pawnCoords)
+					if checkIfMovesContains(&validMoves, toCoords) {
+						fromCoords = &pawnCoords
+						return true
+					}
+				}
+			}
+			return false
+		}
+
+		if !pawnPGN() {
+			return -1, &MoveError{err: "Invalid pawn move"}
+		}
+	}
+
+	return c.move(fromCoords, toCoords)
+}
+
 // Move moves a piece and returns statusCode (int) and error
 //
 // -1 = error
+//
 // 0 = normal
+//
 // 1 = check
+//
 // 2 = checkmate
 func (c *Chess) Move(from, to string) (int, error) {
 	if from == to {
@@ -41,100 +119,7 @@ func (c *Chess) Move(from, to string) (int, error) {
 	fromCoords := translateCBtoCoords(from)
 	toCoords := translateCBtoCoords(to)
 
-	piece := determinePieceWithCoords(fromCoords, c.boardTable)
-
-	color := determineColor(piece)
-	enemy := determineEnemy(color)
-
-	// Check if current turn
-	if color != c.turn {
-		return -1, &MoveError{err: "Not current turn"}
-	}
-
-	// Check if valid move
-	validMoves := c.calculateValidMoves(fromCoords)
-	if !checkIfMovesContains(&validMoves, toCoords) {
-		return -1, &MoveError{err: fmt.Sprintf("not a valid move from %s to %s", from, to)}
-	}
-
-	statusCode := 0
-
-	c.halfmoves++
-
-	// Check if capture then reset halfmoves
-	if determinePieceWithCoords(toCoords, c.boardTable) != '-' {
-		c.halfmoves = 0
-	}
-
-	movePiece(fromCoords, toCoords, &c.boardTable)
-
-	// Check if checked
-	if c.checkIfChecked(enemy, c.boardTable) {
-		statusCode = 1
-
-		if c.checkIfMate(enemy) {
-			statusCode = 2
-			c.winner = c.turn
-		}
-	}
-
-	// Post process
-	switch unicode.ToLower(piece) {
-	case 'p':
-		// Check if pawn moves 2 times
-		if math.Abs(float64(fromCoords.row-toCoords.row)) == 2 {
-			c.pawnPassant = from
-		}
-		c.halfmoves = 0
-
-	case 'r':
-		if color == 'w' {
-			if fromCoords.col == 7 {
-				c.castle.WhiteKing = false
-			} else if fromCoords.col == 0 {
-				c.castle.WhiteQueen = false
-			}
-		} else {
-			if fromCoords.col == 7 {
-				c.castle.BlackKing = false
-			} else if fromCoords.col == 0 {
-				c.castle.BlackQueen = false
-			}
-		}
-
-	case 'k':
-		// Determine the row of the king based on color
-		kingRow := 0
-		if color == 'w' {
-			kingRow = 7
-		}
-
-		// Move rook if king castled
-		if fromCoords.row-toCoords.row == 2 {
-			movePiece(&Coords{row: kingRow, col: 0}, &Coords{row: kingRow, col: 3}, &c.boardTable)
-		} else if fromCoords.row-toCoords.row == -2 {
-			movePiece(&Coords{row: kingRow, col: 7}, &Coords{row: kingRow, col: 5}, &c.boardTable)
-		}
-
-		// Make castle availability false if king moved
-		if color == 'w' {
-			c.castle.WhiteKing = false
-			c.castle.WhiteQueen = false
-		} else {
-			c.castle.BlackKing = false
-			c.castle.BlackQueen = false
-		}
-	}
-
-	// Increment fullmoves after the turn of black
-	if c.turn == 'b' {
-		c.fullmoves++
-	}
-
-	// Switch the turn
-	c.turn = enemy
-
-	return statusCode, nil
+	return c.move(fromCoords, toCoords)
 }
 
 // PrintBoard TODO: Improve this
@@ -161,6 +146,10 @@ func (c *Chess) CalculateValidMoves(cb string) []string {
 	}
 
 	return validMoves
+}
+
+func (c *Chess) Turn() rune {
+	return c.turn
 }
 
 // GetFEN returns the FEN string of the current chess game
@@ -306,6 +295,103 @@ func (c *Chess) decodeFen(fen string) error {
 	}
 
 	return nil
+}
+
+func (c *Chess) move(fromCoords *Coords, toCoords *Coords) (int, error) {
+	piece := determinePieceWithCoords(fromCoords, c.boardTable)
+
+	color := determineColor(piece)
+	enemy := determineEnemy(color)
+
+	from := translateCoordsToCB(fromCoords)
+	to := translateCoordsToCB(toCoords)
+
+	// Check if current turn
+	if color != c.turn {
+		return -1, &MoveError{err: "Not current turn"}
+	}
+
+	// Check if valid move
+	validMoves := c.calculateValidMoves(fromCoords)
+	if !checkIfMovesContains(&validMoves, toCoords) {
+		return -1, &MoveError{err: fmt.Sprintf("not a valid move from %s to %s", from, to)}
+	}
+
+	statusCode := 0
+
+	c.halfmoves++
+
+	// Check if capture then reset halfmoves
+	if determinePieceWithCoords(toCoords, c.boardTable) != '-' {
+		c.halfmoves = 0
+	}
+
+	movePiece(fromCoords, toCoords, &c.boardTable)
+
+	// Check if checked
+	if c.checkIfChecked(enemy, c.boardTable) {
+		statusCode = 1
+
+		if c.checkIfMate(enemy) {
+			statusCode = 2
+			c.winner = c.turn
+		}
+	}
+
+	// Post process
+	switch unicode.ToLower(piece) {
+	case 'p':
+		// Check if pawn moves 2 times
+		if math.Abs(float64(fromCoords.row-toCoords.row)) == 2 {
+			c.pawnPassant = from
+		}
+		c.halfmoves = 0
+
+	case 'r':
+		if color == 'w' {
+			if fromCoords.col == 7 {
+				c.castle.WhiteKing = false
+			} else if fromCoords.col == 0 {
+				c.castle.WhiteQueen = false
+			}
+		} else {
+			if fromCoords.col == 7 {
+				c.castle.BlackKing = false
+			} else if fromCoords.col == 0 {
+				c.castle.BlackQueen = false
+			}
+		}
+
+	case 'k':
+		// Determine the row of the king based on color
+		kingRow := determineKingRow(color)
+
+		// Move rook if king castled
+		if fromCoords.row-toCoords.row == 2 {
+			movePiece(&Coords{row: kingRow, col: 0}, &Coords{row: kingRow, col: 3}, &c.boardTable)
+		} else if fromCoords.row-toCoords.row == -2 {
+			movePiece(&Coords{row: kingRow, col: 7}, &Coords{row: kingRow, col: 5}, &c.boardTable)
+		}
+
+		// Make castle availability false if king moved
+		if color == 'w' {
+			c.castle.WhiteKing = false
+			c.castle.WhiteQueen = false
+		} else {
+			c.castle.BlackKing = false
+			c.castle.BlackQueen = false
+		}
+	}
+
+	// Increment fullmoves after the turn of black
+	if c.turn == 'b' {
+		c.fullmoves++
+	}
+
+	// Switch the turn
+	c.turn = enemy
+
+	return statusCode, nil
 }
 
 // calculateValidMoves calculates the valid paths in a given piece coordinate
@@ -497,17 +583,29 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 		blackQueen1 := &Coords{row: blackRow, col: queenSideCol - 1}
 
 		if color == 'w' {
-			if c.castle.WhiteKing && !c.checkIfMoveIsCheck(coord, whiteKing1, board) {
+			if c.castle.WhiteKing &&
+				!c.checkIfMoveIsCheck(coord, whiteKing1, board) &&
+				!checkIfThereIsPieceInCoords(whiteKing1, board) {
+
 				moves = append(moves, whiteKing)
 			}
-			if c.castle.WhiteQueen && !c.checkIfMoveIsCheck(coord, whiteQueen1, board) {
+			if c.castle.WhiteQueen &&
+				!c.checkIfMoveIsCheck(coord, whiteQueen1, board) &&
+				!checkIfThereIsPieceInCoords(whiteQueen1, board) {
+
 				moves = append(moves, whiteQueen)
 			}
 		} else {
-			if c.castle.BlackKing && !c.checkIfMoveIsCheck(coord, blackKing1, board) {
+			if c.castle.BlackKing &&
+				!c.checkIfMoveIsCheck(coord, blackKing1, board) &&
+				!checkIfThereIsPieceInCoords(blackKing1, board) {
+
 				moves = append(moves, blackKing)
 			}
-			if c.castle.BlackQueen && !c.checkIfMoveIsCheck(coord, blackQueen1, board) {
+			if c.castle.BlackQueen &&
+				!c.checkIfMoveIsCheck(coord, blackQueen1, board) &&
+				!checkIfThereIsPieceInCoords(blackQueen1, board) {
+
 				moves = append(moves, blackQueen)
 			}
 		}

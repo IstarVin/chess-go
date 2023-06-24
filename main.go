@@ -9,18 +9,20 @@ import (
 func main() {
 	chess := engine.NewGameChess()
 
-	var from, to string
+	//var from, to string
+	var pgn string
 
 	for {
 		chess.PrintBoard()
 
-		fmt.Print("\nMake a move: ")
-		_, err := fmt.Scan(&from, &to)
+		fmt.Printf("\nMake a move (%s): ", string(chess.Turn()))
+		_, err := fmt.Scan(&pgn)
 		if err != nil {
 			panic(err)
 		}
 
-		_, err1 := chess.Move(from, to)
+		//_, err1 := chess.Move(from, to)
+		_, err1 := chess.MovePGN(pgn)
 		if err1 != nil {
 			println(err1.Error(), "\ntry again")
 			var scan string
