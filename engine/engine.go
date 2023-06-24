@@ -14,6 +14,19 @@ const (
 	maxStep    = 7
 )
 
+var (
+	clearBoard = Board{
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+	}
+)
+
 func NewGameChess() *Chess {
 	chess, _ := NewChessGameWithFen(DefaultFen)
 	return chess
@@ -33,15 +46,15 @@ func (c *Chess) MovePGN(pgn string) (int, error) {
 	// If move is castle
 	kingRow := 8 - determineKingRow(c.turn)
 	kingCoords := fmt.Sprintf("e%d", kingRow)
-	if strings.Contains(pgn, "0-0") {
+	if strings.Contains(pgn, "O-O") {
 		var castleTo string
 		// King Side Castle
-		if pgn == "0-0" {
+		if pgn == "O-O" {
 			castleTo = fmt.Sprintf("g%d", kingRow)
 
 			// Queen Side Castle
-		} else if pgn == "0-0-0" {
-			castleTo = fmt.Sprintf("e%d", kingRow)
+		} else if pgn == "O-O-O" {
+			castleTo = fmt.Sprintf("c%d", kingRow)
 		}
 		return c.Move(kingCoords, castleTo)
 	}
@@ -49,17 +62,20 @@ func (c *Chess) MovePGN(pgn string) (int, error) {
 	// Compile the regexp
 	toRE, _ := regexp.Compile("[a-h]\\d")
 	pieceRE, _ := regexp.Compile("[RNBQK]")
-	idRE, _ := regexp.Compile("[a-h1-8]")
+	idRE, _ := regexp.Compile("[RNBQK][a-h1-8]|^[a-h]")
+	id2RE, _ := regexp.CompilePOSIX("[a-h1-8]")
 
 	// Determine to coordinate
 	to := toRE.FindString(pgn)
+	pgn = toRE.ReplaceAllString(pgn, "")
 	toCoords := translateCBtoCoords(to)
 
 	// Determine the piece
 	piece := pieceRE.FindString(pgn)
 
 	// Determine the ID
-	id := idRE.FindString(pgn)
+	idTemp := idRE.FindString(pgn)
+	id := id2RE.FindString(idTemp)
 
 	// Determine if attack
 	isAttack := strings.Contains(pgn, "x")
@@ -67,11 +83,29 @@ func (c *Chess) MovePGN(pgn string) (int, error) {
 	// Determine the fromCoords
 	fromCoords := &Coords{}
 	switch piece {
-	case "R":
-	case "N":
-	case "B":
-	case "Q":
-	case "K":
+	case "R", "N", "B", "Q", "K":
+		possibleMoves := c.calculateMoves(rune(piece[0]), toCoords, clearBoard, maxStep)
+
+		piecePGN := func() bool {
+			for _, move := range possibleMoves {
+				if determinePieceWithCoords(move, c.boardTable) == determineColorPiece(c.turn, rune(piece[0])) {
+					if id != "" {
+						if (unicode.IsDigit(rune(id[0])) && move.row != translateCBtoCoords("a"+id).row) ||
+							(unicode.IsLetter(rune(id[0])) && move.col != translateCBtoCoords(id+"1").col) {
+							continue
+						}
+					}
+					fromCoords = move
+					return true
+				}
+			}
+			return false
+		}
+
+		if !piecePGN() {
+			return -1, &MoveError{err: "Invalid pgn"}
+		}
+
 	case "":
 		var pawnCoords Coords
 		if isAttack {
@@ -326,6 +360,7 @@ func (c *Chess) move(fromCoords *Coords, toCoords *Coords) (int, error) {
 		c.halfmoves = 0
 	}
 
+	// Move the piece in board
 	movePiece(fromCoords, toCoords, &c.boardTable)
 
 	// Check if checked
@@ -367,10 +402,10 @@ func (c *Chess) move(fromCoords *Coords, toCoords *Coords) (int, error) {
 		kingRow := determineKingRow(color)
 
 		// Move rook if king castled
-		if fromCoords.row-toCoords.row == 2 {
-			movePiece(&Coords{row: kingRow, col: 0}, &Coords{row: kingRow, col: 3}, &c.boardTable)
-		} else if fromCoords.row-toCoords.row == -2 {
-			movePiece(&Coords{row: kingRow, col: 7}, &Coords{row: kingRow, col: 5}, &c.boardTable)
+		if fromCoords.col-toCoords.col == 2 {
+			movePiece(&Coords{kingRow, 0}, &Coords{kingRow, 3}, &c.boardTable)
+		} else if fromCoords.col-toCoords.col == -2 {
+			movePiece(&Coords{kingRow, 7}, &Coords{kingRow, 5}, &c.boardTable)
 		}
 
 		// Make castle availability false if king moved
@@ -567,8 +602,8 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 		blackRow := 0
 
 		// Define col
-		kingSideCol := 5
-		queenSideCol := 3
+		kingSideCol := 6
+		queenSideCol := 2
 
 		// Define coords of castle
 		whiteKing := &Coords{row: whiteRow, col: kingSideCol}
@@ -577,20 +612,22 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 		blackQueen := &Coords{row: blackRow, col: queenSideCol}
 
 		// Define coords of side of castle
-		whiteKing1 := &Coords{row: whiteRow, col: kingSideCol + 1}
-		whiteQueen1 := &Coords{row: whiteRow, col: queenSideCol - 1}
-		blackKing1 := &Coords{row: blackRow, col: kingSideCol + 1}
-		blackQueen1 := &Coords{row: blackRow, col: queenSideCol - 1}
+		whiteKing1 := &Coords{row: whiteRow, col: kingSideCol - 1}
+		whiteQueen1 := &Coords{row: whiteRow, col: queenSideCol + 1}
+		blackKing1 := &Coords{row: blackRow, col: kingSideCol - 1}
+		blackQueen1 := &Coords{row: blackRow, col: queenSideCol + 1}
 
 		if color == 'w' {
 			if c.castle.WhiteKing &&
 				!c.checkIfMoveIsCheck(coord, whiteKing1, board) &&
+				!checkIfThereIsPieceInCoords(whiteKing, board) &&
 				!checkIfThereIsPieceInCoords(whiteKing1, board) {
 
 				moves = append(moves, whiteKing)
 			}
 			if c.castle.WhiteQueen &&
 				!c.checkIfMoveIsCheck(coord, whiteQueen1, board) &&
+				!checkIfThereIsPieceInCoords(whiteQueen, board) &&
 				!checkIfThereIsPieceInCoords(whiteQueen1, board) {
 
 				moves = append(moves, whiteQueen)
@@ -598,12 +635,14 @@ func (c *Chess) calculateMoves(piece rune, coord *Coords, board Board, maxStep i
 		} else {
 			if c.castle.BlackKing &&
 				!c.checkIfMoveIsCheck(coord, blackKing1, board) &&
+				!checkIfThereIsPieceInCoords(blackKing, board) &&
 				!checkIfThereIsPieceInCoords(blackKing1, board) {
 
 				moves = append(moves, blackKing)
 			}
 			if c.castle.BlackQueen &&
 				!c.checkIfMoveIsCheck(coord, blackQueen1, board) &&
+				!checkIfThereIsPieceInCoords(blackQueen, board) &&
 				!checkIfThereIsPieceInCoords(blackQueen1, board) {
 
 				moves = append(moves, blackQueen)
