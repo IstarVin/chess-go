@@ -4,6 +4,19 @@ import (
 	"unicode"
 )
 
+var (
+	clearBoard = Board{
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+		{'-', '-', '-', '-', '-', '-', '-', '-'},
+	}
+)
+
 // translateCBtoCoords translates chessboard notation to coordinates
 func translateCBtoCoords(cb string) *Coords {
 	column := rune(cb[0])
@@ -93,6 +106,7 @@ func translateCoordsToCB(coord *Coords) string {
 	return string('a'+rune(coord.col)) + string('8'-rune(coord.row))
 }
 
+// checkIfMovesContains checks if moves contains move
 func checkIfMovesContains(moves *[]*Coords, move *Coords) bool {
 	for _, m := range *moves {
 		if *m == *move {
@@ -103,6 +117,7 @@ func checkIfMovesContains(moves *[]*Coords, move *Coords) bool {
 	return false
 }
 
+// determineEnemy determines the enemy color
 func determineEnemy(color rune) rune {
 	if color == 'w' {
 		return 'b'
@@ -110,6 +125,7 @@ func determineEnemy(color rune) rune {
 	return 'w'
 }
 
+// determineKingRow determines the row of the king
 func determineKingRow(color rune) int {
 	kingRow := 0
 	if color == 'w' {

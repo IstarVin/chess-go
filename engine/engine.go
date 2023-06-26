@@ -14,18 +14,8 @@ const (
 	maxStep    = 7
 )
 
-var (
-	clearBoard = Board{
-		{'-', '-', '-', '-', '-', '-', '-', '-'},
-		{'-', '-', '-', '-', '-', '-', '-', '-'},
-		{'-', '-', '-', '-', '-', '-', '-', '-'},
-		{'-', '-', '-', '-', '-', '-', '-', '-'},
-		{'-', '-', '-', '-', '-', '-', '-', '-'},
-		{'-', '-', '-', '-', '-', '-', '-', '-'},
-		{'-', '-', '-', '-', '-', '-', '-', '-'},
-		{'-', '-', '-', '-', '-', '-', '-', '-'},
-	}
-)
+// TODO: PGN notation tracker
+// TODO: undo and redo
 
 func NewGameChess() *Chess {
 	chess, _ := NewChessGameWithFen(DefaultFen)
@@ -41,6 +31,8 @@ func NewChessGameWithFen(fen string) (*Chess, error) {
 	return &chess, nil
 }
 
+// MovePGN TODO: fix logic if two possible
+// MovePGN TODO: fix the filter of inputted PGN (kinda done)
 // MovePGN moves a piece like Move with Portable Game Notation (PGN)
 func (c *Chess) MovePGN(pgn string) (int, error) {
 	// If move is castle
@@ -64,6 +56,11 @@ func (c *Chess) MovePGN(pgn string) (int, error) {
 	pieceRE, _ := regexp.Compile("[RNBQK]")
 	idRE, _ := regexp.Compile("[RNBQK][a-h1-8]|^[a-h]")
 	id2RE, _ := regexp.CompilePOSIX("[a-h1-8]")
+
+	// Find errors
+	if !toRE.MatchString(pgn) {
+		return -1, &MoveError{err: "invalid move coordinate"}
+	}
 
 	// Determine to coordinate
 	to := toRE.FindString(pgn)
@@ -108,7 +105,7 @@ func (c *Chess) MovePGN(pgn string) (int, error) {
 
 	case "":
 		var pawnCoords Coords
-		if isAttack {
+		if isAttack && id != "" {
 			pawnCoords.col = translateCBtoCoords(id + "1").col // TODO: optimize this
 		} else {
 			pawnCoords.col = toCoords.col

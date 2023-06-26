@@ -14,6 +14,15 @@ type Coords struct {
 	col int
 }
 
+type Move struct {
+	From *Coords
+	To   *Coords
+
+	Captured rune
+}
+
+type Turn [2]*Move
+
 type Chess struct {
 	boardTable  Board
 	turn        rune
@@ -23,4 +32,6 @@ type Chess struct {
 	fullmoves   int
 
 	winner rune
+
+	movesTracker []Turn
 }
